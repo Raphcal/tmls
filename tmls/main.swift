@@ -48,7 +48,10 @@ func diskNameFor(path location: String, in volumes: [String]) throws -> String {
     return diskName
 }
 
-var columns = 80
+var size = winsize()
+_ = ioctl(STDOUT_FILENO, TIOCGWINSZ, &size)
+
+var columns = Int(size.ws_col)
 
 func print(entries: [String]) {
     let maxCount = entries.reduce(0, {(result, entry) in entry.count > result ? entry.count : result})
@@ -94,14 +97,13 @@ var arguments = CommandLine.arguments
 arguments.removeFirst()
 
 enum ArgumentType {
-    case Location, ComputerName, DiskName, Columns
+    case Location, ComputerName, DiskName
 }
 
 func printUsageAndQuit() {
     print("usage: tmls [-alv] [-c ComputerName] [-d DiskName] [-h] [location ...]")
     print("  -a, --all                     Display hidden files.")
     print("  -c, --computer <ComputerName> Name of the computer.")
-    print("  --columns <Columns>           Width of the terminal window.")
     print("  -d, --disk <DiskName>         Name of the the time machine disk to use.")
     print("  -l                            Display the results in a single column.")
     print("  -h, --help                    Display this screen.")
@@ -121,8 +123,6 @@ for argument in arguments {
                 all = true
             case "computer":
                 nextArgumentType = .ComputerName
-            case "columns":
-                nextArgumentType = .Columns
             case "disk":
                 nextArgumentType = .DiskName
             case "help":
@@ -175,10 +175,6 @@ for argument in arguments {
             computerName = argument
         case .DiskName:
             forcedDiskName = argument
-        case .Columns:
-            if let value = Int(argument) {
-                columns = value
-            }
         }
         nextArgumentType = .Location
     }
