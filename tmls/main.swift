@@ -182,9 +182,6 @@ for argument in arguments {
 
 if verbose {
     print("Computer Name: \(computerName)")
-    if let diskName = forcedDiskName {
-        print("Disk name: \(diskName)")
-    }
 }
 
 if locations.isEmpty {
@@ -199,33 +196,52 @@ do {
         if locations.count > 1 {
             print("\(location):")
         }
-        let diskName = forcedDiskName != nil ? forcedDiskName! : try diskNameFor(path: location, in: volumes)
         
         for volume in volumes {
-            let root = "/Volumes/\(volume)/Backups.backupdb/\(computerName)"
+            var thisComputerName = computerName
+            if fileManager.isExecutableFile(atPath: "/Volumes/\(volume)/Backups.backupdb") {
+                for name in try fileManager.contentsOfDirectory(atPath: "/Volumes/\(volume)/Backups.backupdb") {
+                    if name.lowercased() == computerName.lowercased() {
+                        thisComputerName = name
+                        break
+                    }
+                }
+            }
+            let root = "/Volumes/\(volume)/Backups.backupdb/\(thisComputerName)"
             if fileManager.isExecutableFile(atPath: root) {
                 print("> \(volume)")
                 var lastContent: [String]? = nil
                 for date in try fileManager.contentsOfDirectory(atPath: root) {
-                    let path = "\(root)/\(date)/\(diskName)\(location)"
-                    var content: [String]? = nil
-                    if fileManager.isExecutableFile(atPath: path) {
-                        do {
-                            var files = try fileManager.contentsOfDirectory(atPath: path)
-                            if !all {
-                                files = files.filter({ $0.first != "." })
+                    let diskNames: [String]
+                    if let forcedDiskName = forcedDiskName {
+                        diskNames = [forcedDiskName]
+                    } else {
+                        diskNames = try fileManager.contentsOfDirectory(atPath: "\(root)/\(date)")
+                    }
+                    for diskName in diskNames {
+                        if verbose {
+                            print("Disk Name: \(diskName)")
+                        }
+                        let path = "\(root)/\(date)/\(diskName)\(location)"
+                        var content: [String]? = nil
+                        if fileManager.isExecutableFile(atPath: path) {
+                            do {
+                                var files = try fileManager.contentsOfDirectory(atPath: path)
+                                if !all {
+                                    files = files.filter({ $0.first != "." })
+                                }
+                                content = files
+                            } catch {
+                                print("An error occured while reading \(path): \(error)")
                             }
-                            content = files
-                        } catch {
-                            print("An error occured while reading \(path): \(error)")
+                        }
+                        if let content = content, lastContent == nil || content != lastContent! {
+                            print(path)
+                            print(entries: content)
+                            print()
+                            lastContent = content
                         }
                     }
-                    if let content = content, lastContent == nil || content != lastContent! {
-                        print(path)
-                        print(entries: content)
-                        print()
-                    }
-                    lastContent = content
                 }
             }
         }
